@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDFMind AI • Advanced RAG Document Chatbot</title>
+  <meta name="description" content="AI-powered RAG PDF chatbot assistant built with ChromaDB, Sentence Transformers, and Google Gemini." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* -------------------------------------------------------------
+       CSS VARIABLES & THEME SYSTEM
+       ------------------------------------------------------------- */
+    :root {
+      --bg-dark: #090d16;
+      --bg-surface: #0f172a;
+      --bg-surface-elevated: #1e293b;
+      --bg-surface-glass: rgba(17, 24, 39, 0.75);
+      --bg-surface-hover: rgba(30, 41, 59, 0.8);
+      
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.5);
+      --border-glass: rgba(255, 255, 255, 0.12);
+
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+      --secondary: #8b5cf6;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+
+      --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 10px 25px -3px rgba(0, 0, 0, 0.35);
+      --shadow-glow: 0 0 35px -5px var(--primary-glow);
+
+      --sidebar-width: 340px;
+      --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* -------------------------------------------------------------
+       GLOBAL RESET & BASE STYLES
+       ------------------------------------------------------------- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      overflow: hidden;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle ambient glowing background gradients */
+    body::before {
+      content: "";
+      position: fixed;
+      top: -20%;
+      left: 15%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(80px);
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      bottom: -15%;
+      right: 10%;
+      width: 550px;
+      height: 550px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, rgba(6, 182, 212, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(80px);
+    }
+
+    /* -------------------------------------------------------------
+       SIDEBAR: DOCUMENT MANAGER & CONTROLS
+       ------------------------------------------------------------- */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--bg-surface-glass);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+      transition: var(--transition-smooth);
+      position: relative;
+      flex-shrink: 0;
+      height: 100vh;
+    }
+
+    .sidebar.collapsed {
+      transform: translateX(-100%);
+      margin-left: calc(-1 * var(--sidebar-width));
+    }
+
+    .sidebar-header {
+      padding: 24px 20px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .brand-icon-box {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .brand-icon-box svg {
+      width: 22px;
+      height: 22px;
+      color: #fff;
+    }
+
+    .brand-text h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      background: linear-gradient(120deg, #ffffff 40%, #c7d2fe 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .badge-pill {
+      font-size: 0.68rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .badge-primary {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .badge-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-amber {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* Sidebar Content Scroll Area */
+    .sidebar-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .sidebar-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .sidebar-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .sidebar-scroll::-webkit-scrollbar-thumb {
+      background: var(--border-subtle);
+      border-radius: 10px;
+    }
+
+    .section-title {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Connection Status Card */
+    .status-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.82rem;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+      animation: pulse-dot 2s infinite;
+    }
+
+    .status-dot.offline {
+      background: var(--accent-amber);
+      box-shadow: 0 0 10px var(--accent-amber);
+      animation: none;
+    }
+
+    @keyframes pulse-dot {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* Upload Box */
+    .upload-zone {
+      border: 2px dashed rgba(99, 102, 241, 0.35);
+      border-radius: var(--radius-md);
+      padding: 20px 14px;
+      text-align: center;
+      background: rgba(99, 102, 241, 0.04);
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .upload-icon {
+      width: 36px;
+      height: 36px;
+      margin: 0 auto 10px;
+      background: rgba(99, 102, 241, 0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #818cf8;
+    }
+
+    .upload-text {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .upload-sub {
+      font-size: 0.73rem;
+      color: var(--text-dim);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    /* Document Item List */
+    .doc-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .doc-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: var(--transition-smooth);
+    }
+
+    .doc-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      background: var(--bg-surface-hover);
+    }
+
+    .doc-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .doc-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: rgba(244, 63, 94, 0.15);
+      color: #fb7185;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .doc-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 170px;
+    }
+
+    .doc-meta {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    /* Settings & Controls */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 5px;
+      background: var(--bg-surface-elevated);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--primary-glow);
+      transition: transform 0.15s ease;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--bg-surface-elevated);
+      transition: 0.3s;
+      border-radius: 34px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #cbd5e1;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-toggle {
+      background-color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    input:checked + .slider-toggle:before {
+      transform: translateX(18px);
+      background-color: #fff;
+    }
+
+    /* -------------------------------------------------------------
+       MAIN CHAT CONTAINER
+       ------------------------------------------------------------- */
+    .main-chat {
+      flex: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    /* Top Navigation Bar */
+    .chat-header {
+      height: 72px;
+      padding: 0 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(9, 13, 22, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .header-title-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-title-box h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-title-box span {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-secondary {
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* -------------------------------------------------------------
+       CHAT STREAM & MESSAGES
+       ------------------------------------------------------------- */
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 30px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      scroll-behavior: smooth;
+    }
+
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
+    .message-container {
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Hero / Empty Welcome State */
+    .hero-welcome {
+      text-align: center;
+      padding: 40px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #c7d2fe;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .hero-title {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      max-width: 600px;
+    }
+
+    .hero-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      line-height: 1.5;
+    }
+
+    .prompt-suggestions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 720px;
+      margin-top: 14px;
+    }
+
+    .prompt-chip {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .prompt-chip:hover {
+      border-color: rgba(99, 102, 241, 0.4);
+      background: rgba(99, 102, 241, 0.08);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .prompt-chip-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .prompt-chip-text {
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      line-height: 1.35;
+    }
+
+    /* Message Bubbles */
+    .message-row {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      animation: messageSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes messageSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message-row.user-row {
+      justify-content: flex-end;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .avatar-bot {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      color: #fff;
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+
+    .avatar-user {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-glass);
+      color: #cbd5e1;
+    }
+
+    .bubble-wrapper {
+      max-width: 82%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .user-bubble {
+      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+      color: #ffffff;
+      padding: 13px 18px;
+      border-radius: 18px 18px 4px 18px;
+      font-size: 0.92rem;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .bot-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px 18px 18px 4px;
+      padding: 18px 20px;
+      color: var(--text-main);
+      font-size: 0.92rem;
+      line-height: 1.65;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Markdown Formatting inside bot card */
+    .bot-card p {
+      margin-bottom: 12px;
+    }
+    .bot-card p:last-child {
+      margin-bottom: 0;
+    }
+    .bot-card strong {
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .bot-card ul, .bot-card ol {
+      margin: 8px 0 14px 22px;
+    }
+    .bot-card li {
+      margin-bottom: 6px;
+    }
+    .bot-card code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: #a5b4fc;
+    }
+    .bot-card pre {
+      background: #020617;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 12px 0;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.84rem;
+    }
+
+    /* Source Citations Section */
+    .citations-container {
+      margin-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 12px;
+    }
+
+    .citations-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #818cf8;
+      padding: 4px 0;
+    }
+
+    .citations-header:hover {
+      color: #a5b4fc;
+    }
+
+    .citations-count-pill {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.72rem;
+    }
+
+    .citations-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .citations-list.hidden {
+      display: none;
+    }
+
+    .citation-card {
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-left: 3px solid var(--primary);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 0.8rem;
+    }
+
+    .citation-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 0.73rem;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .citation-text {
+      color: #cbd5e1;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      font-family: inherit;
+    }
+
+    /* Message Action Toolbar */
+    .message-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .action-chip {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: var(--transition-smooth);
+    }
+
+    .action-chip:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* Typing Loader */
+    .typing-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px 18px 18px 4px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .pulse-bars {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pulse-bar {
+      width: 4px;
+      height: 14px;
+      background: var(--primary);
+      border-radius: 2px;
+      animation: pulse-bar-anim 1.2s infinite ease-in-out;
+    }
+    .pulse-bar:nth-child(2) { animation-delay: 0.2s; background: var(--secondary); }
+    .pulse-bar:nth-child(3) { animation-delay: 0.4s; background: var(--accent-cyan); }
+
+    @keyframes pulse-bar-anim {
+      0%, 100% { transform: scaleY(0.4); opacity: 0.4; }
+      50% { transform: scaleY(1.3); opacity: 1; }
+    }
+
+    /* -------------------------------------------------------------
+       INPUT COMPONENT (FLOATING DOCK)
+       ------------------------------------------------------------- */
+    .input-dock {
+      padding: 0 24px 20px;
+      background: linear-gradient(180deg, rgba(9, 13, 22, 0) 0%, rgba(9, 13, 22, 0.95) 45%, #090d16 100%);
+      position: relative;
+      z-index: 10;
+    }
+
+    .input-box-wrapper {
+      max-width: 860px;
+      margin: 0 auto;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius-lg);
+      padding: 8px 12px 8px 18px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-md), 0 0 0 1px rgba(255, 255, 255, 0.04);
+      transition: var(--transition-smooth);
+    }
+
+    .input-box-wrapper:focus-within {
+      border-color: var(--border-focus);
+      box-shadow: var(--shadow-md), 0 0 25px -4px var(--primary-glow);
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .chat-textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.94rem;
+      resize: none;
+      max-height: 180px;
+      min-height: 26px;
+      line-height: 1.5;
+      padding: 6px 0;
+    }
+
+    .chat-textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    .input-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 2px;
+    }
+
+    .send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      box-shadow: 0 4px 12px var(--primary-glow);
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: 0 6px 18px var(--primary-glow);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .input-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .keyboard-hint kbd {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      padding: 2px 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    /* -------------------------------------------------------------
+       MODAL & TOAST NOTIFICATIONS
+       ------------------------------------------------------------- */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      color: var(--text-main);
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: var(--transition-smooth);
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Modal Backdrop */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: var(--transition-smooth);
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      width: 90%;
+      max-width: 520px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-md);
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .modal-header h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .code-snippet {
+      background: #020617;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: #a5b4fc;
+      margin: 10px 0;
+      position: relative;
+      user-select: all;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+      }
+      .sidebar.collapsed {
+        transform: translateX(-100%);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =============================================================
+       LEFT SIDEBAR: DOCUMENT REPOSITORY & RAG SETTINGS
+       ============================================================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="#" class="brand-logo">
+        <div class="brand-icon-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>PDFMind RAG</h1>
+          <span>ChromaDB & Gemini</span>
+        </div>
+      </a>
+      <span class="badge-pill badge-primary">v2.4</span>
+    </div>
+
+    <div class="sidebar-scroll">
+      <!-- Live Backend & Index Status -->
+      <div>
+        <div class="section-title">
+          <span>Engine Status</span>
+          <button class="action-chip" id="refreshStatusBtn" title="Check connection">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          </button>
+        </div>
+        <div class="status-card">
+          <div class="status-row">
+            <span class="status-indicator">
+              <span class="status-dot" id="statusDot"></span>
+              <span id="statusText">Checking...</span>
+            </span>
+            <span class="badge-pill badge-success" id="modeBadge">Live RAG</span>
+          </div>
+          <div class="status-row">
+            <span style="color: var(--text-dim); font-size: 0.76rem;">Vector Store</span>
+            <span style="font-weight: 600; color: #a5b4fc;" id="chromaChunks">-- chunks</span>
+          </div>
+          <div class="status-row">
+            <span style="color: var(--text-dim); font-size: 0.76rem;">Embeddings</span>
+            <span style="font-weight: 500; font-size: 0.75rem;">all-MiniLM-L6</span>
+          </div>
+          <div class="status-row">
+            <span style="color: var(--text-dim); font-size: 0.76rem;">LLM Model</span>
+            <span style="font-weight: 500; font-size: 0.75rem;">gemini-3.7-flash</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PDF Ingestion & Drag-Drop Uploader -->
+      <div>
+        <div class="section-title">
+          <span>Upload Document</span>
+        </div>
+        <div class="upload-zone" id="dropZone">
+          <input type="file" id="fileInput" class="file-input" accept=".pdf" />
+          <div class="upload-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <div class="upload-text" id="uploadLabel">Upload or Drop PDF</div>
+          <div class="upload-sub">Auto-extracts, chunks & stores in ChromaDB</div>
+        </div>
+      </div>
+
+      <!-- Indexed Documents List -->
+      <div>
+        <div class="section-title">
+          <span>Indexed PDFs (<span id="docCount">0</span>)</span>
+          <button class="action-chip" id="reingestBtn" title="Re-index all documents">Re-index</button>
+        </div>
+        <div class="doc-list" id="docList">
+          <div class="doc-card">
+            <div class="doc-info">
+              <div class="doc-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              </div>
+              <div>
+                <div class="doc-name" title="Loading documents...">Loading...</div>
+                <div class="doc-meta">-- KB</div>
+              </div>
+            </div>
+            <span class="badge-pill badge-primary">Active</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RAG Pipeline Configuration -->
+      <div>
+        <div class="section-title">
+          <span>Retrieval Parameters</span>
+        </div>
+        <div class="control-group">
+          <div class="slider-header">
+            <span>Context Chunks (Top-K)</span>
+            <strong id="topKValue" style="color: var(--primary);">5</strong>
+          </div>
+          <input type="range" min="1" max="8" value="5" class="slider" id="topKSlider" />
+        </div>
+
+        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <label class="switch-row">
+            <span>Show Cited Chunks</span>
+            <div class="switch">
+              <input type="checkbox" id="showCitationsToggle" checked />
+              <span class="slider-toggle"></span>
+            </div>
+          </label>
+          <label class="switch-row">
+            <span>Voice Readout</span>
+            <div class="switch">
+              <input type="checkbox" id="voiceToggle" />
+              <span class="slider-toggle"></span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- =============================================================
+       MAIN WORKSPACE: CHAT CONVERSATION AREA
+       ============================================================= -->
+  <main class="main-chat">
+    <!-- Top Navigation Header -->
+    <header class="chat-header">
+      <div class="header-left">
+        <button class="icon-btn" id="toggleSidebarBtn" title="Toggle Sidebar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+        </button>
+        <div class="header-title-box">
+          <h2 id="activeDocTitle">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            Active Knowledge Base
+          </h2>
+          <span id="activeDocSubtitle">Connected to ChromaDB RAG Vector Store</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button class="btn-secondary" id="clearChatBtn" title="Clear chat history">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          Clear
+        </button>
+        <button class="btn-secondary" id="exportChatBtn" title="Export conversation to Markdown">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Export
+        </button>
+        <button class="icon-btn" id="helpBtn" title="Setup Instructions">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable Chat Stream -->
+    <div class="chat-scroll" id="chatScroll">
+      <div class="message-container" id="messageContainer">
+        
+        <!-- Welcome Hero Empty State -->
+        <div class="hero-welcome" id="heroWelcome">
+          <div class="hero-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            Augmented with ChromaDB & Google Gemini
+          </div>
+          <h2 class="hero-title">Ask anything about your PDF documents</h2>
+          <p class="hero-subtitle">
+            Upload your reports, research papers, or manuals. Your assistant retrieves relevant context chunks and provides grounded answers with source citations.
+          </p>
+
+          <div class="prompt-suggestions">
+            <div class="prompt-chip" data-prompt="Give me a concise executive summary of this document.">
+              <span class="prompt-chip-icon">📄</span>
+              <div class="prompt-chip-text">Summarize the entire document concisely</div>
+            </div>
+            <div class="prompt-chip" data-prompt="Who should I contact for IT Support and what is the email?">
+              <span class="prompt-chip-icon">💻</span>
+              <div class="prompt-chip-text">Who do I contact for IT Support and email?</div>
+            </div>
+            <div class="prompt-chip" data-prompt="What are the information security and password policy rules?">
+              <span class="prompt-chip-icon">🔒</span>
+              <div class="prompt-chip-text">What are the security & password rules?</div>
+            </div>
+            <div class="prompt-chip" data-prompt="What are the key policies, benefits, or conclusions mentioned?">
+              <span class="prompt-chip-icon">🎯</span>
+              <div class="prompt-chip-text">Key policies, benefits & takeaways</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Floating Bottom Dock / Input Form -->
+    <div class="input-dock">
+      <div class="input-box-wrapper">
+        <div class="input-row">
+          <button class="icon-btn" id="attachBtn" title="Upload PDF to index" style="border: none; background: transparent;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+          </button>
+          <textarea
+            id="chatInput"
+            class="chat-textarea"
+            placeholder="Ask a question about the document... (Press Enter to send)"
+            rows="1"
+          ></textarea>
+          <div class="input-actions">
+            <button class="send-btn" id="sendBtn" title="Send message (Enter)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="input-footer">
+          <div class="keyboard-hint">
+            Press <kbd>Enter ↵</kbd> to send • <kbd>Shift+Enter</kbd> for new line
+          </div>
+          <div id="charCount">0 characters</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- =============================================================
+       HELP / RUN BACKEND MODAL
+       ============================================================= -->
+  <div class="modal-backdrop" id="helpModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🚀 Running Live Python Backend</h3>
+        <button class="icon-btn" id="closeModalBtn" style="border:none;">✕</button>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+        To connect this UI directly to your <code>chatbot.py</code>, <code>retriever.py</code>, and <code>ingest.py</code>, run the included server:
+      </p>
+      <div class="code-snippet">.\venv\Scripts\python.exe server.py</div>
+      <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 12px;">
+        Then open <code>http://localhost:8000</code> in your browser. This will automatically execute live ChromaDB searches and stream responses directly from Google Gemini!
+      </p>
+      <div style="margin-top: 18px; text-align: right;">
+        <button class="btn-secondary" id="modalOkBtn" style="background: var(--primary); color: #fff; border: none; padding: 8px 18px;">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-emerald);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+    <span id="toastMsg">Notification message</span>
+  </div>
+
+  <!-- =============================================================
+       CLIENT LOGIC (JAVASCRIPT)
+       ============================================================= -->
+  <script>
+    // Configuration & State
+    const API_BASE = window.location.origin.includes("http") ? window.location.origin : "http://localhost:8000";
+    let isLiveBackend = false;
+    let isProcessing = false;
+    let chatHistory = [];
+    let currentSpeechSynthesisUtterance = null;
+
+    // Elements
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const chatScroll = document.getElementById("chatScroll");
+    const messageContainer = document.getElementById("messageContainer");
+    const heroWelcome = document.getElementById("heroWelcome");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const modeBadge = document.getElementById("modeBadge");
+    const chromaChunks = document.getElementById("chromaChunks");
+    const docCount = document.getElementById("docCount");
+    const docList = document.getElementById("docList");
+    const topKSlider = document.getElementById("topKSlider");
+    const topKValue = document.getElementById("topKValue");
+    const showCitationsToggle = document.getElementById("showCitationsToggle");
+    const voiceToggle = document.getElementById("voiceToggle");
+    const sidebar = document.getElementById("sidebar");
+    const toggleSidebarBtn = document.getElementById("toggleSidebarBtn");
+    const clearChatBtn = document.getElementById("clearChatBtn");
+    const exportChatBtn = document.getElementById("exportChatBtn");
+    const refreshStatusBtn = document.getElementById("refreshStatusBtn");
+    const reingestBtn = document.getElementById("reingestBtn");
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const attachBtn = document.getElementById("attachBtn");
+    const charCount = document.getElementById("charCount");
+    const helpBtn = document.getElementById("helpBtn");
+    const helpModal = document.getElementById("helpModal");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const modalOkBtn = document.getElementById("modalOkBtn");
+    const toast = document.getElementById("toast");
+    const toastMsg = document.getElementById("toastMsg");
+
+    // Toast Helper
+    function showToast(message, duration = 3000) {
+      toastMsg.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), duration);
+    }
+
+    // Auto-resize input textarea
+    function adjustTextareaHeight() {
+      chatInput.style.height = "auto";
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 180) + "px";
+      charCount.textContent = `${chatInput.value.length} characters`;
+      sendBtn.disabled = !chatInput.value.trim() || isProcessing;
+    }
+
+    chatInput.addEventListener("input", adjustTextareaHeight);
+
+    // Keyboard handlers
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        if (!sendBtn.disabled) {
+          handleSendMessage();
+        }
+      }
+    });
+
+    // Slider handler
+    topKSlider.addEventListener("input", (e) => {
+      topKValue.textContent = e.target.value;
+    });
+
+    // Sidebar Toggle
+    toggleSidebarBtn.addEventListener("click", () => {
+      sidebar.classList.toggle("collapsed");
+    });
+
+    // Help Modal
+    helpBtn.addEventListener("click", () => helpModal.classList.add("open"));
+    closeModalBtn.addEventListener("click", () => helpModal.classList.remove("open"));
+    modalOkBtn.addEventListener("click", () => helpModal.classList.remove("open"));
+    helpModal.addEventListener("click", (e) => {
+      if (e.target === helpModal) helpModal.classList.remove("open");
+    });
+
+    // Check Backend Status
+    async function checkBackendStatus() {
+      try {
+        statusText.textContent = "Connecting...";
+        const res = await fetch(`${API_BASE}/api/status`, { method: "GET", signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const data = await res.json();
+          isLiveBackend = true;
+          statusDot.classList.remove("offline");
+          statusText.textContent = "Backend Online";
+          modeBadge.textContent = "Live RAG";
+          modeBadge.className = "badge-pill badge-success";
+          chromaChunks.textContent = `${data.chroma_chunks || 0} chunks`;
+          docCount.textContent = data.document_count || 0;
+          fetchDocuments();
+          return true;
+        }
+      } catch (err) {
+        // Fallback to offline interactive preview mode
+        isLiveBackend = false;
+        statusDot.classList.add("offline");
+        statusText.textContent = "Local Preview (Offline)";
+        modeBadge.textContent = "Mock Mode";
+        modeBadge.className = "badge-pill badge-amber";
+        chromaChunks.textContent = "7 chunks (persisted)";
+        docCount.textContent = "1";
+        renderMockDocs();
+      }
+      return false;
+    }
+
+    refreshStatusBtn.addEventListener("click", async () => {
+      showToast("Pinging backend server...");
+      const ok = await checkBackendStatus();
+      if (ok) showToast("Connected to Python RAG server!");
+      else showToast("Backend offline. Run: python server.py");
+    });
+
+    // Fetch and render document list
+    async function fetchDocuments() {
+      try {
+        const res = await fetch(`${API_BASE}/api/documents`);
+        if (res.ok) {
+          const data = await res.json();
+          renderDocList(data.documents || []);
+        }
+      } catch (e) {
+        renderMockDocs();
+      }
+    }
+
+    function renderDocList(docs) {
+      if (!docs.length) {
+        docList.innerHTML = `<div style="font-size:0.75rem; color:var(--text-dim); padding:8px;">No PDFs in ./pdfs directory</div>`;
+        return;
+      }
+      docCount.textContent = docs.length;
+      docList.innerHTML = docs.map((doc, idx) => `
+        <div class="doc-card">
+          <div class="doc-info">
+            <div class="doc-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            </div>
+            <div>
+              <div class="doc-name" title="${doc.name}">${doc.name}</div>
+              <div class="doc-meta">${doc.size_kb ? doc.size_kb + ' KB' : 'PDF'} • Indexed</div>
+            </div>
+          </div>
+          <span class="badge-pill ${idx === 0 ? 'badge-primary' : ''}">${idx === 0 ? 'Active' : 'Ready'}</span>
+        </div>
+      `).join("");
+
+      if (docs.length > 0) {
+        document.getElementById("activeDocTitle").innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary);"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+          ${docs[0].name}
+        `;
+      }
+    }
+
+    function renderMockDocs() {
+      renderDocList([{ name: "rag_chatbot_sample_1_page.pdf", size_kb: 3.8 }]);
+    }
+
+    // Re-index all PDFs
+    reingestBtn.addEventListener("click", async () => {
+      if (!isLiveBackend) {
+        showToast("Start python server.py to re-index documents");
+        return;
+      }
+      showToast("Re-indexing all PDFs in ChromaDB...");
+      try {
+        const res = await fetch(`${API_BASE}/api/reingest`, { method: "POST" });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Successfully indexed ${data.total_chunks} chunks!`);
+          checkBackendStatus();
+        } else {
+          showToast("Re-indexing failed: " + (data.error || "Unknown"));
+        }
+      } catch (err) {
+        showToast("Error communicating with server");
+      }
+    });
+
+    // File Upload Handlers (Click + Drag/Drop)
+    attachBtn.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("click", () => fileInput.click());
+
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileUpload(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleFileUpload(e.target.files[0]);
+      }
+    });
+
+    async function handleFileUpload(file) {
+      if (!file.name.toLowerCase().endsWith(".pdf")) {
+        showToast("Please upload a PDF file (.pdf)");
+        return;
+      }
+
+      if (!isLiveBackend) {
+        showToast("Server offline. Run 'python server.py' to upload & index PDFs.");
+        return;
+      }
+
+      const uploadLabel = document.getElementById("uploadLabel");
+      const originalText = uploadLabel.textContent;
+      uploadLabel.textContent = `Uploading & Indexing ${file.name}...`;
+      showToast(`Uploading ${file.name} to server...`);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/upload`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Ingested ${data.filename}! Total chunks: ${data.total_chunks}`);
+          checkBackendStatus();
+        } else {
+          showToast("Upload failed: " + (data.error || "Error"));
+        }
+      } catch (err) {
+        showToast("Upload failed. Check server console.");
+      } finally {
+        uploadLabel.textContent = originalText;
+        fileInput.value = "";
+      }
+    }
+
+    // Prompt chip suggestion clicks
+    document.querySelectorAll(".prompt-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        chatInput.value = chip.getAttribute("data-prompt");
+        adjustTextareaHeight();
+        chatInput.focus();
+      });
+    });
+
+    // Render User Message
+    function appendUserMessage(text) {
+      if (heroWelcome) heroWelcome.style.display = "none";
+
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const row = document.createElement("div");
+      row.className = "message-row user-row";
+      row.innerHTML = `
+        <div class="bubble-wrapper">
+          <div class="user-bubble">${escapeHtml(text)}</div>
+          <div style="font-size: 0.7rem; color: var(--text-dim); text-align: right; padding-right: 4px;">${time}</div>
+        </div>
+        <div class="avatar avatar-user">You</div>
+      `;
+      messageContainer.appendChild(row);
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+
+      chatHistory.push({ role: "user", text, time });
+    }
+
+    // Append Typing Loader
+    function appendTypingIndicator() {
+      const row = document.createElement("div");
+      row.className = "message-row bot-row";
+      row.id = "typingIndicator";
+      row.innerHTML = `
+        <div class="avatar avatar-bot">AI</div>
+        <div class="typing-card">
+          <div class="pulse-bars">
+            <span class="pulse-bar"></span>
+            <span class="pulse-bar"></span>
+            <span class="pulse-bar"></span>
+          </div>
+          <span>Retrieving ChromaDB context & consulting Gemini...</span>
+        </div>
+      `;
+      messageContainer.appendChild(row);
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+      const el = document.getElementById("typingIndicator");
+      if (el) el.remove();
+    }
+
+    // Parse simple Markdown for rich display
+    function formatMarkdown(text) {
+      if (!text) return "";
+      let html = escapeHtml(text);
+
+      // Code blocks ```code```
+      html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
+        return `<pre><code>${code.trim()}</code></pre>`;
+      });
+
+      // Inline code `code`
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Bold **text**
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+      // Italic *text*
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+      // Bullet points
+      const lines = html.split('\n');
+      let inList = false;
+      let outputLines = [];
+
+      for (let line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          if (!inList) {
+            outputLines.push('<ul>');
+            inList = true;
+          }
+          outputLines.push(`<li>${trimmed.substring(2)}</li>`);
+        } else if (trimmed.match(/^\d+\.\s/)) {
+          if (!inList) {
+            outputLines.push('<ol>');
+            inList = true;
+          }
+          outputLines.push(`<li>${trimmed.replace(/^\d+\.\s/, '')}</li>`);
+        } else {
+          if (inList) {
+            outputLines.push('</ul>');
+            inList = false;
+          }
+          outputLines.push(line ? `<p>${line}</p>` : '');
+        }
+      }
+      if (inList) outputLines.push('</ul>');
+
+      return outputLines.join('');
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Append AI Response
+    function appendBotResponse(answer, sources = []) {
+      removeTypingIndicator();
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const msgId = "bot-msg-" + Date.now();
+      const formattedHtml = formatMarkdown(answer);
+
+      const hasSources = sources && sources.length > 0 && showCitationsToggle.checked;
+      
+      let sourcesHtml = "";
+      if (hasSources) {
+        const sourceCards = sources.map((src, i) => `
+          <div class="citation-card">
+            <div class="citation-meta">
+              <span>📄 ${escapeHtml(src.source || 'Document')} (Chunk #${src.chunk_index !== undefined ? src.chunk_index : i})</span>
+              ${src.distance !== null && src.distance !== undefined ? `<span style="color:#10b981;">Sim: ${Math.max(0, (1 - src.distance).toFixed(2))}</span>` : ''}
+            </div>
+            <div class="citation-text">${escapeHtml(src.text)}</div>
+          </div>
+        `).join("");
+
+        sourcesHtml = `
+          <div class="citations-container">
+            <div class="citations-header" onclick="toggleCitations('${msgId}')">
+              <span>📚 Cited Documents & Context</span>
+              <span class="citations-count-pill">${sources.length} Chunks</span>
+            </div>
+            <div class="citations-list" id="${msgId}-citations">
+              ${sourceCards}
+            </div>
+          </div>
+        `;
+      }
+
+      const row = document.createElement("div");
+      row.className = "message-row bot-row";
+      row.innerHTML = `
+        <div class="avatar avatar-bot">AI</div>
+        <div class="bubble-wrapper">
+          <div class="bot-card" id="${msgId}">
+            <div class="bot-content">${formattedHtml}</div>
+            ${sourcesHtml}
+          </div>
+          <div class="message-actions">
+            <button class="action-chip" onclick="copyResponseText('${msgId}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              Copy
+            </button>
+            <button class="action-chip" onclick="speakResponse('${msgId}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+              Read
+            </button>
+            <span style="font-size: 0.7rem; color: var(--text-dim); margin-left: auto;">${time}</span>
+          </div>
+        </div>
+      `;
+
+      messageContainer.appendChild(row);
+      chatScroll.scrollTop = chatScroll.scrollHeight;
+
+      chatHistory.push({ role: "bot", text: answer, sources, time });
+
+      // Auto voice readout if enabled
+      if (voiceToggle.checked) {
+        speakText(answer);
+      }
+    }
+
+    // Toggle Citations list
+    window.toggleCitations = function(msgId) {
+      const list = document.getElementById(`${msgId}-citations`);
+      if (list) {
+        list.classList.toggle("hidden");
+      }
+    };
+
+    // Copy Response text
+    window.copyResponseText = function(msgId) {
+      const card = document.getElementById(msgId);
+      if (card) {
+        const content = card.querySelector(".bot-content") ? card.querySelector(".bot-content").innerText : card.innerText;
+        navigator.clipboard.writeText(content).then(() => {
+          showToast("Copied answer to clipboard!");
+        }).catch(() => {
+          showToast("Failed to copy");
+        });
+      }
+    };
+
+    // Voice Readout with Web Speech API
+    window.speakResponse = function(msgId) {
+      const card = document.getElementById(msgId);
+      if (card) {
+        const content = card.querySelector(".bot-content") ? card.querySelector(".bot-content").innerText : card.innerText;
+        speakText(content);
+      }
+    };
+
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) {
+        showToast("Speech synthesis is not supported in this browser.");
+        return;
+      }
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+      const clean = text.replace(/[*#`_]/g, '');
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Send Message Handler
+    async function handleSendMessage() {
+      const query = chatInput.value.trim();
+      if (!query || isProcessing) return;
+
+      appendUserMessage(query);
+      chatInput.value = "";
+      adjustTextareaHeight();
+
+      isProcessing = true;
+      sendBtn.disabled = true;
+      appendTypingIndicator();
+
+      const n_results = parseInt(topKSlider.value, 10) || 5;
+
+      if (isLiveBackend) {
+        // Query live Python server connected to ChromaDB + Gemini
+        try {
+          const res = await fetch(`${API_BASE}/api/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query, n_results })
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `Server responded with status ${res.status}`);
+          }
+
+          const data = await res.json();
+          appendBotResponse(data.answer || "No response received.", data.sources || []);
+        } catch (err) {
+          console.error("Chat error:", err);
+          appendBotResponse(
+            `⚠️ **Error communicating with backend**: ${err.message}\n\nPlease ensure your Python backend is running via:\n\`python server.py\` and that your \`.env\` has a valid \`GEMINI_API_KEY\`.`
+          );
+        } finally {
+          isProcessing = false;
+          sendBtn.disabled = !chatInput.value.trim();
+        }
+      } else {
+        // Mock / Offline Interactive Simulation Mode
+        setTimeout(() => {
+          const simulatedSources = [
+            {
+              source: "rag_chatbot_sample_1_page.pdf",
+              chunk_index: 0,
+              distance: 0.184,
+              text: "This document describes the Retrieval-Augmented Generation (RAG) architecture using ChromaDB vector database and sentence-transformers embedding model (all-MiniLM-L6-v2) combined with Google Gemini LLM."
+            },
+            {
+              source: "rag_chatbot_sample_1_page.pdf",
+              chunk_index: 2,
+              distance: 0.231,
+              text: "Key components include text extraction from PDF using pypdf, text chunking with 500 characters and 50 character overlap, persistence in local ChromaDB, and context-based prompting."
+            }
+          ];
+
+          const simulatedAnswer = `Based on the document context:
+
+1. **Architecture**: The PDF chatbot is built on a **RAG (Retrieval-Augmented Generation)** framework.
+2. **Components**:
+   - **Vector Database**: ChromaDB storing embedded chunks.
+   - **Embeddings**: \`all-MiniLM-L6-v2\` from Sentence Transformers.
+   - **LLM**: Google Gemini (\`gemini-3.7-flash\`).
+   - **PDF Processing**: \`pypdf\` page extraction with dynamic chunking.
+
+*(Note: Live backend is currently offline. Start **\`python server.py\`** in your terminal to query your real ChromaDB embeddings and Gemini model).*`;
+
+          appendBotResponse(simulatedAnswer, simulatedSources);
+          isProcessing = false;
+          sendBtn.disabled = !chatInput.value.trim();
+        }, 1100);
+      }
+    }
+
+    sendBtn.addEventListener("click", handleSendMessage);
+
+    // Clear Chat
+    clearChatBtn.addEventListener("click", () => {
+      if (confirm("Clear current conversation history?")) {
+        messageContainer.innerHTML = "";
+        if (heroWelcome) {
+          heroWelcome.style.display = "flex";
+          messageContainer.appendChild(heroWelcome);
+        }
+        chatHistory = [];
+        showToast("Conversation cleared");
+      }
+    });
+
+    // Export Chat to Markdown
+    exportChatBtn.addEventListener("click", () => {
+      if (!chatHistory.length) {
+        showToast("No conversation to export.");
+        return;
+      }
+      let md = `# PDFMind RAG Chatbot Conversation Export\n`;
+      md += `*Generated: ${new Date().toLocaleString()}*\n\n---\n\n`;
+
+      chatHistory.forEach(item => {
+        if (item.role === "user") {
+          md += `### 👤 User (${item.time})\n${item.text}\n\n`;
+        } else {
+          md += `### 🤖 AI Assistant (${item.time})\n${item.text}\n\n`;
+          if (item.sources && item.sources.length) {
+            md += `#### Sources Cited:\n`;
+            item.sources.forEach(src => {
+              md += `- **${src.source}** (Chunk #${src.chunk_index}): "${src.text}"\n`;
+            });
+            md += `\n`;
+          }
+        }
+      });
+
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pdf-rag-chat-${Date.now()}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("Exported conversation to Markdown file!");
+    });
+
+    // Initial load
+    checkBackendStatus();
+  </script>
+</body>
+</html>
